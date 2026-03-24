@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sauvetage de la Forêt - Multiplications CE1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Comic+Neue:wght@700&display=swap');
+        
+        body {
+            font-family: 'Comic Neue', cursive, sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a202c;
+            touch-action: manipulation;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1000px;
+            max-height: 750px;
+            margin: 0 auto;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 60%, #4CAF50 60%, #2E7D32 100%);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Barre de temps horizontale en haut */
+        #time-bar-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            border: 2px solid white;
+            overflow: hidden;
+            z-index: 30;
+        }
+        #time-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, #f87171, #fbbf24, #34d399);
+            transition: width 1s linear;
+        }
+
+        /* Question flottante au dessus de l'hélico */
+        #ui-question {
+            position: absolute;
+            pointer-events: none;
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.1s ease-out;
+        }
+        #question-box {
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            border: 3px solid #3b82f6;
+            font-size: 2.5rem;
+            font-weight: bold;
+            display: flex;
+            gap: 10px;
+            white-space: nowrap;
+        }
+
+        /* Pavé numérique en ligne en bas */
+        #ui-numpad-horizontal {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 0 20px;
+            z-index: 50;
+        }
+        .btn-num {
+            background: white;
+            border: 2px solid #cbd5e1;
+            box-shadow: 0 4px 0 #94a3b8;
+            border-radius: 12px;
+            width: 60px;
+            height: 60px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.1s;
+        }
+        .btn-num:active {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #94a3b8;
+        }
+        .btn-util {
+            padding: 0 20px;
+            font-size: 1rem;
+            text-transform: uppercase;
+        }
+
+        .hidden { display: none !important; }
+        .confetti { position: absolute; width: 10px; height: 10px; z-index: 100; }
+    </style>
+</head>
+<body class="flex items-center justify-center">
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1000" height="750"></canvas>
+
+        <!-- Barre de Temps -->
+        <div id="time-bar-container">
+            <div id="time-bar"></div>
+        </div>
+
+        <!-- Infos Question -->
+        <div class="absolute top-4 right-6 bg-white/90 px-4 py-2 rounded-2xl shadow-lg border-2 border-purple-400 text-xl font-bold z-20">
+            Q: <span id="question-count">1</span>/15
+        </div>
+
+        <!-- Question flottante (sera déplacée en JS) -->
+        <div id="ui-question">
+            <div id="question-box">
+                <span id="equation">2 x 3 =</span>
+                <span id="player-input" class="text-blue-600 border-b-4 border-blue-600 min-w-[40px] text-center">?</span>
+            </div>
+            <div id="feedback" class="mt-2 text-xl font-bold opacity-0 px-4 py-1 rounded-full bg-white shadow-md"></div>
+        </div>
+
+        <!-- Numpad Horizontal -->
+        <div id="ui-numpad-horizontal">
+            <button class="btn-num" onclick="ajouterChiffre(1)">1</button>
+            <button class="btn-num" onclick="ajouterChiffre(2)">2</button>
+            <button class="btn-num" onclick="ajouterChiffre(3)">3</button>
+            <button class="btn-num" onclick="ajouterChiffre(4)">4</button>
+            <button class="btn-num" onclick="ajouterChiffre(5)">5</button>
+            <button class="btn-num" onclick="ajouterChiffre(6)">6</button>
+            <button class="btn-num" onclick="ajouterChiffre(7)">7</button>
+            <button class="btn-num" onclick="ajouterChiffre(8)">8</button>
+            <button class="btn-num" onclick="ajouterChiffre(9)">9</button>
+            <button class="btn-num" onclick="ajouterChiffre(0)">0</button>
+            <button class="btn-num btn-util bg-yellow-400 border-yellow-600 text-yellow-900" onclick="effacer()">Effacer</button>
+            <button class="btn-num btn-util bg-green-500 border-green-700 text-white" onclick="valider()">Valider</button>
+            <button class="btn-num btn-util bg-gray-200 border-gray-400 text-gray-700" onclick="passerQuestion()">Passer</button>
+        </div>
+
+        <!-- Écran de Fin -->
+        <div id="end-screen" class="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 hidden">
+            <div class="bg-white p-10 rounded-3xl shadow-2xl text-center max-w-md w-full border-8 border-yellow-400">
+                <h2 id="end-title" class="text-4xl font-bold mb-4 text-blue-600">Bravo !</h2>
+                <div id="reward-container" class="flex justify-center gap-4 text-6xl mb-6"></div>
+                <p id="end-score" class="text-2xl font-bold mb-8">Score : 0 / 15</p>
+                <button class="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-2xl text-2xl font-bold shadow-lg transition-transform active:scale-95" onclick="location.reload()">Rejouer</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Configuration
+        const TOTAL_QUESTIONS = 15;
+        const DUREE_INITIALE = 120; 
+        let timer = DUREE_INITIALE;
+        let questionActive = 1;
+        let score = 0;
+        let jeuFini = false;
+
+        let multiplicande = 0;
+        let multiplicateur = 0;
+        let reponseAttendue = 0;
+        let saisieJoueur = "";
+
+        // État visuel
+        let lastTime = 0;
+        let feux = [];
+        let nuages = [];
+        let gouttes = [];
+        let particulesFumee = [];
+
+        // Assets
+        const foretImage = new Image();
+        foretImage.src = 'forêt.png';
+        let foretImageLoaded = false;
+        foretImage.onload = () => foretImageLoaded = true;
+
+        const helicoImage = new Image();
+        helicoImage.src = 'hélicoptère.png';
+        let helicoImageLoaded = false;
+        helicoImage.onload = () => helicoImageLoaded = true;
+
+        let helico = {
+            x: 500, y: 180, targetX: 500,
+            etat: 'patrouille', vitesse: 350, cibleFeu: null
+        };
+
+        // --- INITIALISATION ---
+        function initDecor() {
+            for(let i=0; i<5; i++) {
+                nuages.push({
+                    x: Math.random() * canvas.width,
+                    y: 50 + Math.random() * 80,
+                    taille: 30 + Math.random() * 30,
+                    vitesse: 10 + Math.random() * 15
+                });
+            }
+            startTimer();
+            genererQuestion();
+            ajouterFeu();
+        }
+
+        function startTimer() {
+            const timerInterval = setInterval(() => {
+                if (jeuFini) {
+                    clearInterval(timerInterval);
+                    return;
+                }
+                timer--;
+                const pourcentage = (timer / DUREE_INITIALE) * 100;
+                document.getElementById('time-bar').style.width = pourcentage + '%';
+                
+                if (timer <= 0) {
+                    clearInterval(timerInterval);
+                    terminerJeu();
+                }
+            }, 1000);
+        }
+
+        // --- LOGIQUE MULTIPLICATION ---
+        function genererQuestion() {
+            if (questionActive > TOTAL_QUESTIONS) {
+                terminerJeu();
+                return;
+            }
+            document.getElementById('question-count').innerText = questionActive;
+            multiplicande = Math.floor(Math.random() * 8) + 2;
+            multiplicateur = Math.floor(Math.random() * 9) + 1;
+            reponseAttendue = multiplicande * multiplicateur;
+            saisieJoueur = "";
+            mettreAJourAffichage();
+        }
+
+        function mettreAJourAffichage() {
+            document.getElementById('equation').innerText = `${multiplicande} x ${multiplicateur} = `;
+            document.getElementById('player-input').innerText = saisieJoueur === "" ? "?" : saisieJoueur;
+        }
+
+        function ajouterChiffre(ch) {
+            if (jeuFini) return;
+            if (saisieJoueur.length < 3) {
+                saisieJoueur += ch.toString();
+                mettreAJourAffichage();
+            }
+        }
+
+        function effacer() {
+            saisieJoueur = saisieJoueur.slice(0, -1);
+            mettreAJourAffichage();
+        }
+
+        function valider() {
+            if (saisieJoueur === "" || jeuFini) return;
+
+            if (parseInt(saisieJoueur) === reponseAttendue) {
+                afficherFeedback("Correct ! 💧", "text-green-600");
+                score++;
+                reponseCorrecte();
+            } else {
+                afficherFeedback(`C'était ${reponseAttendue}`, "text-red-600");
+                questionActive++;
+                setTimeout(genererQuestion, 1500);
+            }
+        }
+
+        function passerQuestion() {
+            if (jeuFini) return;
+            afficherFeedback(`${reponseAttendue}`, "text-orange-600");
+            questionActive++;
+            setTimeout(genererQuestion, 1500);
+        }
+
+        function afficherFeedback(msg, classes) {
+            const f = document.getElementById('feedback');
+            f.innerText = msg;
+            f.className = `mt-2 text-xl font-bold px-4 py-1 rounded-full bg-white shadow-md ${classes}`;
+            f.style.opacity = 1;
+            setTimeout(() => f.style.opacity = 0, 1500);
+        }
+
+        function reponseCorrecte() {
+            questionActive++;
+            if (feux.length > 0) {
+                let pireFeu = feux.reduce((p, c) => (p.intensite > c.intensite) ? p : c);
+                helico.cibleFeu = pireFeu;
+                helico.targetX = pireFeu.x;
+                helico.etat = 'en_route';
+            }
+            setTimeout(genererQuestion, 1500);
+        }
+
+        // --- FIN DU JEU ---
+        function terminerJeu() {
+            jeuFini = true;
+            document.getElementById('end-screen').classList.remove('hidden');
+            document.getElementById('ui-numpad-horizontal').classList.add('hidden');
+            document.getElementById('ui-question').classList.add('hidden');
+            
+            const scoreDisplay = document.getElementById('end-score');
+            scoreDisplay.innerText = `Score : ${score} / ${TOTAL_QUESTIONS}`;
+            
+            const rewards = document.getElementById('reward-container');
+            const title = document.getElementById('end-title');
+            
+            if (score === TOTAL_QUESTIONS) {
+                title.innerText = "CHAMPION !";
+                rewards.innerHTML = "🏆";
+                lancerConfettis();
+            } else if (score >= 13) {
+                title.innerText = "Super !";
+                rewards.innerHTML = "⭐ ⭐ ⭐";
+            } else if (score >= 8) {
+                title.innerText = "Bien !";
+                rewards.innerHTML = "⭐ ⭐";
+            } else {
+                title.innerText = "Entraîne-toi !";
+                rewards.innerHTML = "⭐";
+            }
+        }
+
+        function lancerConfettis() {
+            for(let i=0; i<100; i++) {
+                const c = document.createElement('div');
+                c.className = 'confetti';
+                c.style.backgroundColor = `hsl(${Math.random()*360}, 100%, 50%)`;
+                c.style.left = Math.random() * 100 + 'vw';
+                c.style.top = '-10px';
+                document.getElementById('game-container').appendChild(c);
+                const anim = c.animate([
+                    { top: '-10px', transform: `rotate(0deg)` },
+                    { top: '100vh', transform: `rotate(720deg) translateX(${Math.random()*200 - 100}px)` }
+                ], { duration: 2000 + Math.random()*3000 });
+                anim.onfinish = () => c.remove();
+            }
+        }
+
+        // --- MOTEUR ---
+        function ajouterFeu() {
+            if (feux.length < 4) {
+                feux.push({
+                    x: 150 + Math.random() * (canvas.width - 300),
+                    y: 550,
+                    intensite: 20,
+                    maxIntensite: 100
+                });
+            }
+        }
+
+        function lacherEau() {
+            for(let i=0; i<40; i++) {
+                gouttes.push({
+                    x: helico.x + (Math.random() * 40 - 20),
+                    y: helico.y + 40,
+                    vy: 300 + Math.random() * 150,
+                    vx: (Math.random() * 60 - 30)
+                });
+            }
+        }
+
+        function update(dt) {
+            if (jeuFini) return;
+
+            feux.forEach(f => {
+                f.intensite += 4 * dt; 
+                if (f.intensite > f.maxIntensite) f.intensite = f.maxIntensite;
+                if (Math.random() < f.intensite / 120) {
+                    particulesFumee.push({
+                        x: f.x + (Math.random()*40-20), y: f.y,
+                        vx: Math.random()*20-10, vy: -70 - Math.random()*70,
+                        taille: 12 + Math.random()*25, opacite: 0.7
+                    });
+                }
+            });
+
+            if (Math.random() < 0.1 * dt && feux.length < 3) ajouterFeu();
+
+            for(let i=particulesFumee.length-1; i>=0; i--) {
+                let p = particulesFumee[i];
+                p.x += p.vx * dt; p.y += p.vy * dt;
+                p.taille += 15 * dt; p.opacite -= 0.4 * dt;
+                if (p.opacite <= 0) particulesFumee.splice(i, 1);
+            }
+
+            nuages.forEach(n => {
+                n.x += n.vitesse * dt;
+                if (n.x > canvas.width + 100) n.x = -100;
+            });
+
+            for(let i=gouttes.length-1; i>=0; i--) {
+                let g = gouttes[i];
+                g.x += g.vx * dt; g.y += g.vy * dt;
+                if (g.y > 550) {
+                    gouttes.splice(i, 1);
+                    feux.forEach(f => {
+                        if (Math.abs(f.x - g.x) < 100) f.intensite -= 3.5;
+                    });
+                }
+            }
+            feux = feux.filter(f => f.intensite > 5);
+
+            // Hélicoptère
+            if (helico.etat === 'patrouille') {
+                helico.targetX = 500 + Math.sin(Date.now() / 2000) * 300;
+                helico.x += (helico.targetX - helico.x) * 0.015;
+            } else if (helico.etat === 'en_route') {
+                let dist = helico.targetX - helico.x;
+                if (Math.abs(dist) < 10) {
+                    helico.etat = 'largage';
+                    lacherEau();
+                } else {
+                    helico.x += Math.sign(dist) * helico.vitesse * dt;
+                }
+            } else if (helico.etat === 'largage') {
+                if (gouttes.length === 0) {
+                    helico.etat = 'patrouille';
+                }
+            }
+
+            // Mettre à jour position UI Question
+            const uiQ = document.getElementById('ui-question');
+            uiQ.style.left = (helico.x - uiQ.offsetWidth / 2) + "px";
+            uiQ.style.top = (helico.y - 120) + "px";
+        }
+
+        function drawHelicoptereFallback(ctx, x, y) {
+            ctx.save(); ctx.translate(x, y);
+            ctx.fillStyle = '#E53E3E'; ctx.beginPath(); ctx.ellipse(0, 0, 40, 20, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillRect(-70, -5, 40, 10); ctx.fillStyle = '#2D3748';
+            ctx.save(); ctx.translate(0, -25); ctx.rotate(Date.now() / 50); ctx.fillRect(-60, -2, 120, 4); ctx.restore();
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Nuages
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            nuages.forEach(n => {
+                ctx.beginPath(); ctx.arc(n.x, n.y, n.taille, 0, Math.PI*2); ctx.fill();
+            });
+            // Forêt
+            if (foretImageLoaded) {
+                ctx.drawImage(foretImage, 0, canvas.height - 450, canvas.width, 450);
+            } else {
+                ctx.fillStyle = '#4CAF50'; ctx.fillRect(0, canvas.height - 450, canvas.width, 450);
+            }
+            // Fumée
+            particulesFumee.forEach(p => {
+                ctx.fillStyle = `rgba(110, 110, 110, ${p.opacite})`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.taille, 0, Math.PI*2); ctx.fill();
+            });
+            // Gouttes
+            ctx.fillStyle = '#3182CE';
+            gouttes.forEach(g => {
+                ctx.beginPath(); ctx.ellipse(g.x, g.y, 4, 8, 0, 0, Math.PI * 2); ctx.fill();
+            });
+            // Hélico
+            if (helicoImageLoaded) {
+                let hW = 160, hH = (helicoImage.height / helicoImage.width) * hW;
+                ctx.save(); ctx.translate(helico.x, helico.y);
+                ctx.rotate((helico.targetX - helico.x) * 0.0005);
+                ctx.drawImage(helicoImage, -hW/2, -hH/2, hW, hH);
+                ctx.restore();
+            } else {
+                drawHelicoptereFallback(ctx, helico.x, helico.y);
+            }
+        }
+
+        function gameLoop(ts) {
+            if (!lastTime) lastTime = ts;
+            update((ts - lastTime) / 1000);
+            draw();
+            lastTime = ts;
+            requestAnimationFrame(gameLoop);
+        }
+
+        initDecor();
+        requestAnimationFrame(gameLoop);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') ajouterChiffre(e.key);
+            else if (e.key === 'Backspace') effacer();
+            else if (e.key === 'Enter') valider();
+        });
+    </script>
+</body>
+</html>
